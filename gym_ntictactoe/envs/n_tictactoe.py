@@ -48,7 +48,7 @@ class Player(Enum):
     Empty = 0
 
 
-class NTicTacToe(gym.Env):
+class NTicTacToeEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, order=3, dimensions=3):
@@ -58,10 +58,10 @@ class NTicTacToe(gym.Env):
         self.dimensions = dimensions
         self.order = order
 
-        self.board = np.zeros((order,) * dimensions).squeeze()
+        self.board = np.zeros((order,) * dimensions, dtype=np.uint8).squeeze()
 
-        self.action_space = spaces.Discrete(len(self.board) - 1)
-        self.observation_space = spaces.Discrete(len(self.board) - 1)
+        self.action_space = spaces.Discrete(order**dimensions)
+        self.observation_space = spaces.Discrete(order**dimensions)
 
         self.whos_move = Player.Empty
 
@@ -71,48 +71,57 @@ class NTicTacToe(gym.Env):
         return self.board.flatten()
 
     def step(self, action):
-        assert (isinstance(action, tuple) and np.shape(action) == (2,), '''Action must be a tuple of 
-                                            (player, board_pos) where board_pos is an int and player 
-                                            is either -1 or 1 given shape {}'''.format(np.shape(action)))
+        assert isinstance(action, tuple) and np.shape(action) == (2,), (
+                    'Action must be a tuple of '
+                    '(player, board_pos) where board_pos is an int and ' 
+                    'player is either -1 or 1 given shape {}'.format(np.shape(action)))
 
         player, move = action
 
-        assert np.shape(player) == () and np.shape(move) == (), '''Action must be tuple of (player, board_pos)
-                                                                where player and board_pos are integers
-                                                                given player shape {} and move shape {}
-                                                                '''.format(np.shape(move), np.shape(move))
+        assert np.shape(player) == () and np.shape(move) == (), (
+            'Action must be tuple of (player, board_pos) '
+            'where player and board_pos are integers '
+            'given player shape {} and move shape {} '
+            .format(np.shape(move), np.shape(move)))
 
-        assert self.observation_space.contains(move), '''Move is invalid, outside range of action space. 
-                                                         Move given {}'''.format(move)
+        assert self.action_space.contains(move), (
+            'Move is invalid, outside range of action space. ' 
+            'Move given {}'.format(move))
 
         if not isinstance(player, Player):
             player = Player(player)
 
-        assert player == Player.X or player == Player.O, '''Player is invalid, must be -1 or 1, or use Player tuple. 
-                                                            Given {}'''.format(player)
+        assert player == Player.X or player == Player.O, (
+            'Player is invalid, must be -1 or 1, '
+            'or use Player enum. ' 
+            'Given {}'.format(player))
 
         if self.whos_move == Player.Empty:
             self.whos_move = player
 
-        assert self.whos_move == player, '''Not player {}'s turn'''.format(player)
+        assert self.whos_move == player, "Not player {}'s turn".format(player)
 
-        x = move % 3
-        tmp = move // 3
+        # Get list of indices for each dimension, will be in order of lowest->highest
+        tmp = move
+        indices = ()
+        while tmp != 0:
+            indices += (tmp % self.order,)
+            tmp = tmp // self.order
 
-        y = tmp % 3
-        tmp = tmp // 3
+        # If we finish early, need to pad the higher dimensions where we index by 0
+        if len(indices) < self.dimensions:
+            indices += (0,) * (self.dimensions - len(indices))
 
-        z = tmp % 3
-        tmp = tmp // 3
+        # Reverse as numpy expects highest -> lowest
+        indices = tuple(reversed(indices))
 
-        assert tmp == 0, '''Converting flattened idx to composite idx failed, got {} remaining.'''.format(tmp)
+        value = self.board[indices]
 
-        value = self.board[z, y, x]
+        assert value == Player.Empty.value, (
+            'Could not place at position {} player {} '
+            'already there.'.format(indices, value))
 
-        assert value == Player.Empty, '''Could not place at position (x,y,z) ({},{},{}) player {}
-                                         already there.'''.format(x, y, z, value)
-
-        self.board[z, y, x] = player
+        self.board[indices] = player.value
 
         indices, mask = get_lines(self.dimensions, self.order)
         all_lines = self.board[indices][mask]
