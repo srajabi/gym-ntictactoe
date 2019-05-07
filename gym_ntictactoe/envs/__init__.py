@@ -1,1 +1,1 @@
-from gym_ntictactoe.envs.n_tictactoe import NTicTacToeEnv
+from gym_ntictactoe.envs.n_tictactoe import NTicTacToeEnv, Player

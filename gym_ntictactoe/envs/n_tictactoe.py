@@ -64,9 +64,14 @@ class NTicTacToeEnv(gym.Env):
         self.observation_space = spaces.Discrete(order**dimensions)
 
         self.whos_move = Player.Empty
+        self.last_move = 0
+        self.last_reward = 0
 
     def reset(self):
         self.board = np.zeros((self.order,) * self.dimensions).squeeze()
+        self.whos_move = Player.Empty
+        self.last_reward = 0
+        self.last_move = 0
 
         return self.board.flatten()
 
@@ -129,20 +134,31 @@ class NTicTacToeEnv(gym.Env):
         any_won = any(sum(r) in {self.order, self.order * -1} for r in all_lines)
 
         self.whos_move = Player(self.whos_move.value * -1)
-        done = False
         info = {'turn': self.whos_move}
+        available_moves = self.board[self.board == 0]
 
         if any_won:
             reward = 1
             done = True
+        elif len(available_moves) == 0:
+            reward = 0.3
+            done = True
         else:
             reward = 0
+            done = False
 
+        self.last_move = move
+        self.last_reward = reward
         return self.board.flatten(), reward, done, info
 
 
     def render(self, mode='human'):
-        print(self.board)  # TODO make this better.
+        print('Action ', self.last_move, ' Reward ', self.last_reward)
+        p_board = self.board.astype(np.object)
+        p_board[p_board == Player.O.value] = 'O'
+        p_board[p_board == Player.X.value] = 'X'
+        p_board[p_board == Player.Empty.value] = ' '
+        print(p_board)
 
     def close(self):
         pass
